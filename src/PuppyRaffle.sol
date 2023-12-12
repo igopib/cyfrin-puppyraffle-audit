@@ -76,6 +76,8 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @notice they have to pay the entrance fee * the number of players
     /// @notice duplicate entrants are not allowed
     /// @param newPlayers the list of players to enter the raffle
+
+    //@audit - functions intention is for user to pay for the entrance fee but there is no call to send ETH.
     function enterRaffle(address[] memory newPlayers) public payable {
         require(msg.value == entranceFee * newPlayers.length, "PuppyRaffle: Must send enough to enter raffle");
         for (uint256 i = 0; i < newPlayers.length; i++) {
