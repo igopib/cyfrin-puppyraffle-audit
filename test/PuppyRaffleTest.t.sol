@@ -16,17 +16,12 @@ contract PuppyRaffleTest is Test {
     uint256 duration = 1 days;
 
     function setUp() public {
-        puppyRaffle = new PuppyRaffle(
-            entranceFee,
-            feeAddress,
-            duration
-        );
+        puppyRaffle = new PuppyRaffle(entranceFee, feeAddress, duration);
     }
 
     //////////////////////
     /// EnterRaffle    ///
     /////////////////////
-
     function testCanEnterRaffle() public {
         address[] memory players = new address[](1);
         players[0] = playerOne;
@@ -170,7 +165,7 @@ contract PuppyRaffleTest is Test {
         vm.warp(block.timestamp + duration + 1);
         vm.roll(block.number + 1);
 
-        uint256 expectedPayout = ((entranceFee * 4) * 80 / 100);
+        uint256 expectedPayout = (((entranceFee * 4) * 80) / 100);
 
         puppyRaffle.selectWinner();
         assertEq(address(playerFour).balance, balanceBefore + expectedPayout);
@@ -188,8 +183,8 @@ contract PuppyRaffleTest is Test {
         vm.warp(block.timestamp + duration + 1);
         vm.roll(block.number + 1);
 
-        string memory expectedTokenUri =
-            "data:application/json;base64,eyJuYW1lIjoiUHVwcHkgUmFmZmxlIiwgImRlc2NyaXB0aW9uIjoiQW4gYWRvcmFibGUgcHVwcHkhIiwgImF0dHJpYnV0ZXMiOiBbeyJ0cmFpdF90eXBlIjogInJhcml0eSIsICJ2YWx1ZSI6IGNvbW1vbn1dLCAiaW1hZ2UiOiJpcGZzOi8vUW1Tc1lSeDNMcERBYjFHWlFtN3paMUF1SFpqZmJQa0Q2SjdzOXI0MXh1MW1mOCJ9";
+        string
+            memory expectedTokenUri = "data:application/json;base64,eyJuYW1lIjoiUHVwcHkgUmFmZmxlIiwgImRlc2NyaXB0aW9uIjoiQW4gYWRvcmFibGUgcHVwcHkhIiwgImF0dHJpYnV0ZXMiOiBbeyJ0cmFpdF90eXBlIjogInJhcml0eSIsICJ2YWx1ZSI6IGNvbW1vbn1dLCAiaW1hZ2UiOiJpcGZzOi8vUW1Tc1lSeDNMcERBYjFHWlFtN3paMUF1SFpqZmJQa0Q2SjdzOXI0MXh1MW1mOCJ9";
 
         puppyRaffle.selectWinner();
         assertEq(puppyRaffle.tokenURI(0), expectedTokenUri);
@@ -212,5 +207,46 @@ contract PuppyRaffleTest is Test {
         puppyRaffle.selectWinner();
         puppyRaffle.withdrawFees();
         assertEq(address(feeAddress).balance, expectedPrizeAmount);
+    }
+
+    function test_denialOfService() public {
+        // address[] memory players = new address[](1);
+        // players[0] = playerOne;
+        // puppyRaffle.enterRaffle{value: entranceFee}(players);
+        // assertEq(puppyRaffle.players(0), playerOne);
+        vm.txGasPrice(1);
+
+        uint256 playerNumber = 500;
+        address[] memory players = new address[](playerNumber);
+        for (uint256 i = 0; i < playerNumber; i++) {
+            players[i] = address(i);
+        }
+
+        uint256 gasStart = gasleft();
+        puppyRaffle.enterRaffle{value: entranceFee * players.length}(players);
+        uint256 gasLeft = gasleft();
+
+        uint256 gasUsedFirst500 = (gasStart - gasLeft) * tx.gasprice;
+
+        console.log(gasUsedFirst500);
+
+        // Check gas for next 500 players
+
+        address[] memory playersNext = new address[](playerNumber);
+        for (uint256 i = 0; i < playerNumber; i++) {
+            playersNext[i] = address(i + playerNumber);
+        }
+
+        uint256 gasStartAfter = gasleft();
+        puppyRaffle.enterRaffle{value: entranceFee * players.length}(
+            playersNext
+        );
+        uint256 gasLeftAfter = gasleft();
+
+        uint256 gasUsedLast500 = (gasStartAfter - gasLeftAfter) * tx.gasprice;
+
+        console.log(gasUsedLast500);
+
+        assert(gasUsedFirst500 < gasUsedLast500);
     }
 }

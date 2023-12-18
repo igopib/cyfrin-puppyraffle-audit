@@ -77,13 +77,15 @@ contract PuppyRaffle is ERC721, Ownable {
     /// @notice duplicate entrants are not allowed
     /// @param newPlayers the list of players to enter the raffle
 
-    //@audit - functions intention is for user to pay for the entrance fee but there is no call to send ETH.
+    //@audit - functions intention is for user to pay for the entrance fee but there is no call for user to send ETH.
     function enterRaffle(address[] memory newPlayers) public payable {
         require(msg.value == entranceFee * newPlayers.length, "PuppyRaffle: Must send enough to enter raffle");
         for (uint256 i = 0; i < newPlayers.length; i++) {
             players.push(newPlayers[i]);
         }
 
+        //@audit - function looks through the players array to check for duplicates every time function is called, makes it vulnerable
+        //         to DOS attacks. The gas will keep increasing with every entry making it more gas expensive over time and potentially make it unsable.
         // Check for duplicates
         for (uint256 i = 0; i < players.length - 1; i++) {
             for (uint256 j = i + 1; j < players.length; j++) {
