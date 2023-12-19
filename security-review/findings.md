@@ -90,6 +90,39 @@ contract ReenterancyAttacker {
 
 Another solution for this would be using Openzeppelins `ReentrancyGuard` contract, it provides a modifier to functions to prevent these attacks from happening.
 
+### [H-2] Function `PuppyRaffle::selectWinner` uses insecure ways of generating random winner for `winnerIndex`.
+
+**Description:** The way `selectWinner` is implemented is very insecure way to create a winner. Thas in the past been exploited in the past. ex - Meebit NFTs
+The winner can be anticipated in this case and using specific methods attacker can.
+
+**Impact:** Miners can hold the transaction and keep rerunning it until they get the winning index of their own
+
+**Proof of Concept:** Case study Meebit NFTs
+
+**Recommended Mitigation:** Recommended and safe way to generate random number is using Chainlink VRF.
+
+### [H-3] Overflow and Underflow 
+
+**Description:** The way `selectWinner` is implemented is very insecure way to create a winner. Thas in the past been exploited in the past. ex - Meebit NFTs
+The winner can be anticipated in this case and using specific methods attacker can.
+
+**Impact:** Miners can hold the transaction and keep rerunning it until they get the winning index of their own
+
+**Proof of Concept:** Case study Meebit NFTs
+
+**Recommended Mitigation:** Recommended and safe way to generate random number is using Chainlink VRF.
+
+### [H-3] `PuppyRaffle::selectWinner` uses very unsafe require statement, which can lead to not being able to withdraw the fee.
+
+**Description:** The way `selectWinner` is implemented is very insecure way to create a winner. Thas in the past been exploited in the past. ex - Meebit NFTs
+The winner can be anticipated in this case and using specific methods attacker can.
+
+**Impact:** Miners can hold the transaction and keep rerunning it until they get the winning index of their own
+
+**Proof of Concept:** Case study Meebit NFTs
+
+**Recommended Mitigation:** Recommended and safe way to generate random number is using Chainlink VRF.
+
 ### [M-#] Function `PuppyRaffle::enterRaffle` is exposed to DOS(Denial of service) attacks, looping through unchecked players array.
 
 **Description:** Function `PuppyRaffle::enterRaffle` is prone to DOS attacks. It iterates unbouded through the list `players`, makes it more gas expensive over time could potentially end up being over block gas limit.Every single player added will require additional check to make on top of already existing players resulting directly in increasing gas cost.
@@ -150,7 +183,3 @@ Another solution for this would be using Openzeppelins `ReentrancyGuard` contrac
 
 **Recommended Mitigation:**
 Severity: HIGH
-
-```
-
-```
